@@ -39,6 +39,13 @@ const TEXT: Color32 = Color32::from_rgb(244, 247, 253);
 const MUTED: Color32 = Color32::from_rgb(165, 181, 206);
 const QUIET: Color32 = Color32::from_rgb(113, 133, 165);
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Page {
+    Overview,
+    Accounts,
+    Registry,
+}
+
 #[derive(Clone, Debug, Default)]
 struct InstallStatus {
     installed: bool,
@@ -68,6 +75,7 @@ struct WindscribeApp {
     tx: Sender<WorkerEvent>,
     rx: Receiver<WorkerEvent>,
     busy: bool,
+    active_page: Page,
     status: InstallStatus,
     username_input: String,
     password_input: String,
@@ -88,6 +96,7 @@ impl WindscribeApp {
             tx,
             rx,
             busy: false,
+            active_page: Page::Overview,
             status: InstallStatus::default(),
             username_input: String::new(),
             password_input: String::new(),
@@ -629,6 +638,26 @@ impl WindscribeApp {
         });
     }
 
+    fn render_registry_page(&mut self, ui: &mut egui::Ui) {
+        card(ui, |ui| {
+            ui.label(RichText::new("⚙  REGISTRY CLEANUP").size(14.0).strong().color(TEXT));
+            ui.add_space(5.0);
+            ui.label(RichText::new("Each key is exported to a timestamped .reg backup before deletion.").size(11.0).color(MUTED));
+            ui.add_space(14.0);
+            ui.horizontal_wrapped(|ui| {
+                if action_button(ui, "Run Command 1", PURPLE, !self.busy).clicked() {
+                    self.confirm_registry = Some("one");
+                }
+                if action_button(ui, "Run Command 2", PURPLE, !self.busy).clicked() {
+                    self.confirm_registry = Some("two");
+                }
+            });
+            ui.add_space(10.0);
+            ui.label(RichText::new(r#"HKCU\Software\Microsoft\Windows\CurrentVersion\NetControlPort"#).size(10.0).monospace().color(QUIET));
+            ui.label(RichText::new(r#"HKCU\Software\Windscribe\Windscribe2"#).size(10.0).monospace().color(QUIET));
+        });
+    }
+
     fn render_activity(&mut self, ui: &mut egui::Ui) {
         card(ui, |ui| {
             ui.horizontal(|ui| {
@@ -736,9 +765,15 @@ impl eframe::App for WindscribeApp {
                     });
                 });
                 ui.add_space(25.0);
-                nav_item(ui, "⌂", "Overview", true);
-                nav_item(ui, "◈", "Windscribe Account", false);
-                nav_item(ui, "⚙", "Registry Tools", false);
+                if nav_item(ui, "⌂", "Overview", self.active_page == Page::Overview) {
+                    self.active_page = Page::Overview;
+                }
+                if nav_item(ui, "◈", "Windscribe Account", self.active_page == Page::Accounts) {
+                    self.active_page = Page::Accounts;
+                }
+                if nav_item(ui, "⚙", "Registry Tools", self.active_page == Page::Registry) {
+                    self.active_page = Page::Registry;
+                }
                 ui.add_space(10.0);
                 ui.separator();
                 ui.add_space(10.0);
@@ -778,13 +813,29 @@ impl eframe::App for WindscribeApp {
                         });
                     });
                     ui.add_space(18.0);
-                    self.render_status_card(ui);
-                    ui.add_space(12.0);
-                    self.render_setup_cards(ui);
-                    ui.add_space(12.0);
-                    self.render_accounts(ui, ctx);
-                    ui.add_space(12.0);
-                    self.render_activity(ui);
+                    match self.active_page {
+                        Page::Overview => {
+                            self.render_status_card(ui);
+                            ui.add_space(12.0);
+                            self.render_setup_cards(ui);
+                            ui.add_space(12.0);
+                            self.render_accounts(ui, ctx);
+                            ui.add_space(12.0);
+                            self.render_activity(ui);
+                        }
+                        Page::Accounts => {
+                            self.render_accounts(ui, ctx);
+                            ui.add_space(12.0);
+                            self.render_activity(ui);
+                        }
+                        Page::Registry => {
+                            self.render_status_card(ui);
+                            ui.add_space(12.0);
+                            self.render_registry_page(ui);
+                            ui.add_space(12.0);
+                            self.render_activity(ui);
+                        }
+                    }
                     ui.add_space(8.0);
                     ui.horizontal(|ui| {
                         ui.label(RichText::new("WINDscribe PRO HUB").size(9.0).strong().color(QUIET));
@@ -830,10 +881,10 @@ fn small_button(ui: &mut egui::Ui, text: &str, color: Color32) -> egui::Response
     )
 }
 
-fn nav_item(ui: &mut egui::Ui, icon: &str, title: &str, active: bool) {
+fn nav_item(ui: &mut egui::Ui, icon: &str, title: &str, active: bool) -> bool {
     let fill = if active { Color32::from_rgb(16, 69, 140) } else { Color32::TRANSPARENT };
     let text_color = if active { TEXT } else { MUTED };
-    ui.add_sized(
+    let response = ui.add_sized(
         [192.0, 39.0],
         egui::Button::new(
             RichText::new(format!("{icon}    {title}"))
@@ -844,6 +895,7 @@ fn nav_item(ui: &mut egui::Ui, icon: &str, title: &str, active: bool) {
         .fill(fill),
     );
     ui.add_space(3.0);
+    response.clicked()
 }
 
 fn chrono_time() -> String {

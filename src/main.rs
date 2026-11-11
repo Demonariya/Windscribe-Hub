@@ -544,104 +544,123 @@ impl WindscribeApp {
     fn render_accounts(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
         card(ui, |ui| {
             ui.horizontal(|ui| {
-                ui.label(RichText::new("🔐  WINDSCRIBE ACCOUNT").size(14.0).strong().color(TEXT));
+                icon_tile(ui, "◈", BLUE);
+                ui.vertical(|ui| {
+                    ui.label(RichText::new("ACCOUNT VAULT").size(13.0).strong().color(TEXT));
+                    ui.label(RichText::new("Encrypted credentials stored for this Windows user").size(9.5).color(QUIET));
+                });
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    ui.label(RichText::new(format!("{} SAVED", self.accounts.len())).size(9.5).strong().color(MUTED));
+                    status_pill(ui, &format!("{} SAVED", self.accounts.len()), BLUE);
                 });
             });
-            ui.add_space(4.0);
-            ui.label(RichText::new("Manage saved Windscribe logins. Passwords are encrypted for this Windows user.").size(10.5).color(MUTED));
-            ui.add_space(13.0);
+            ui.add_space(14.0);
 
             ui.columns(2, |columns| {
                 let left = &mut columns[0];
-                left.label(RichText::new("ACCOUNT DETAILS").size(10.0).strong().color(QUIET));
-                left.add_space(5.0);
-                left.label(RichText::new("Username").size(11.0).strong().color(TEXT));
-                left.add(egui::TextEdit::singleline(&mut self.username_input).hint_text("Windscribe username").desired_width(f32::INFINITY));
-                left.add_space(7.0);
-                left.label(RichText::new("Password").size(11.0).strong().color(TEXT));
-                left.horizontal(|ui| {
-                    let mut password = egui::TextEdit::singleline(&mut self.password_input)
-                        .hint_text("Windscribe password")
-                        .desired_width(ui.available_width() - 72.0);
-                    password = password.password(!self.password_visible);
-                    ui.add(password);
-                    let show_label = if self.password_visible { "Hide" } else { "Show" };
-                    if ui.add(egui::Button::new(show_label).fill(Color32::from_rgb(38, 62, 96))).clicked() {
-                        self.password_visible = !self.password_visible;
-                    }
-                });
-                left.add_space(8.0);
-                left.horizontal_wrapped(|ui| {
-                    if small_button(ui, "Suggest Username", Color32::from_rgb(30, 85, 144)).clicked() {
-                        self.generate_username();
-                    }
-                    if small_button(ui, "Generate Password", PURPLE).clicked() {
-                        self.generate_password();
-                    }
-                });
-                left.add_space(7.0);
-                if action_button(left, "Save Windscribe Account", GREEN, true).clicked() {
-                    self.save_account();
-                }
-                left.add_space(6.0);
-                left.label(RichText::new("A generated username is only a suggestion; it is not registered with Windscribe.").size(9.5).color(QUIET));
-
-                let right = &mut columns[1];
-                right.label(RichText::new("SAVED WINDSCRIBE ACCOUNTS").size(10.0).strong().color(QUIET));
-                right.add_space(5.0);
                 egui::Frame::none()
                     .fill(CARD_ALT)
-                    .rounding(egui::Rounding::same(8.0))
+                    .stroke(Stroke::new(1.0_f32, BORDER))
+                    .rounding(egui::Rounding::same(11.0))
+                    .inner_margin(egui::Margin::same(13.0))
+                    .show(left, |ui| {
+                        ui.label(RichText::new("CREDENTIAL EDITOR").size(9.0).strong().color(QUIET));
+                        ui.add_space(9.0);
+                        ui.label(RichText::new("Username").size(10.0).strong().color(TEXT));
+                        ui.add(
+                            egui::TextEdit::singleline(&mut self.username_input)
+                                .hint_text("Enter Windscribe username")
+                                .desired_width(f32::INFINITY),
+                        );
+                        ui.add_space(9.0);
+                        ui.label(RichText::new("Password").size(10.0).strong().color(TEXT));
+                        ui.horizontal(|ui| {
+                            let mut password = egui::TextEdit::singleline(&mut self.password_input)
+                                .hint_text("Enter password")
+                                .desired_width((ui.available_width() - 64.0).max(100.0));
+                            password = password.password(!self.password_visible);
+                            ui.add(password);
+                            let show_label = if self.password_visible { "Hide" } else { "Show" };
+                            if ui.add(egui::Button::new(show_label).fill(ACCENT_SOFT)).clicked() {
+                                self.password_visible = !self.password_visible;
+                            }
+                        });
+                        ui.add_space(11.0);
+                        ui.horizontal_wrapped(|ui| {
+                            if small_button(ui, "Suggest username", ACCENT_SOFT).clicked() {
+                                self.generate_username();
+                            }
+                            if small_button(ui, "Generate password", Color32::from_rgb(57, 47, 91)).clicked() {
+                                self.generate_password();
+                            }
+                        });
+                        ui.add_space(11.0);
+                        if wide_button(ui, "Save account", GREEN, true).clicked() {
+                            self.save_account();
+                        }
+                        ui.add_space(7.0);
+                        ui.label(RichText::new("Username suggestions are not registered automatically.").size(8.5).color(QUIET));
+                    });
+
+                let right = &mut columns[1];
+                ui_heading(right, "SAVED ACCOUNTS", "Select an entry to load or copy its credentials.");
+                right.add_space(9.0);
+                egui::Frame::none()
+                    .fill(CARD_ALT)
+                    .stroke(Stroke::new(1.0_f32, BORDER))
+                    .rounding(egui::Rounding::same(11.0))
                     .inner_margin(egui::Margin::same(8.0))
                     .show(right, |ui| {
-                        egui::ScrollArea::vertical().max_height(202.0).show(ui, |ui| {
+                        egui::ScrollArea::vertical().max_height(225.0).show(ui, |ui| {
                             if self.accounts.is_empty() {
-                                ui.add_space(23.0);
-                                ui.centered_and_justified(|ui| {
-                                    ui.label(RichText::new("No Windscribe accounts saved yet.").size(11.0).color(QUIET));
+                                ui.add_space(32.0);
+                                ui.vertical_centered(|ui| {
+                                    ui.label(RichText::new("No saved accounts").size(11.0).strong().color(MUTED));
+                                    ui.label(RichText::new("Add a login using the editor.").size(9.0).color(QUIET));
                                 });
-                                ui.add_space(23.0);
+                                ui.add_space(32.0);
                             }
+
                             let mut delete_after: Option<String> = None;
                             let mut select_after: Option<String> = None;
                             for account in &self.accounts {
                                 let selected = self.selected_account.as_deref() == Some(account.id.as_str());
                                 let is_revealed = self.revealed_accounts.contains(&account.id);
-                                let row_fill = if selected { Color32::from_rgb(22, 54, 88) } else { CARD_ALT };
+                                let row_fill = if selected { Color32::from_rgb(28, 47, 71) } else { CARD_ALT };
+                                let row_border = if selected { BLUE.linear_multiply(0.65) } else { BORDER.linear_multiply(0.35) };
                                 egui::Frame::none()
                                     .fill(row_fill)
-                                    .rounding(egui::Rounding::same(6.0))
-                                    .inner_margin(egui::Margin::symmetric(7.0, 6.0))
+                                    .stroke(Stroke::new(1.0_f32, row_border))
+                                    .rounding(egui::Rounding::same(8.0))
+                                    .inner_margin(egui::Margin::symmetric(9.0, 8.0))
                                     .show(ui, |ui| {
                                         ui.horizontal(|ui| {
                                             ui.vertical(|ui| {
-                                                ui.label(RichText::new(&account.username).size(11.0).strong().color(if selected { Color32::from_rgb(32, 185, 244) } else { TEXT }));
+                                                ui.label(RichText::new(&account.username).size(10.5).strong().color(if selected { Color32::from_rgb(139, 190, 255) } else { TEXT }));
                                                 let hidden = "•".repeat(account.password.chars().count().clamp(8, 16));
                                                 let password = if is_revealed { account.password.as_str() } else { hidden.as_str() };
-                                                ui.label(RichText::new(password).size(10.0).color(MUTED));
+                                                ui.label(RichText::new(password).size(9.0).color(QUIET));
                                             });
                                             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                                                if ui.add(egui::Button::new("×").fill(Color32::from_rgb(92, 39, 57))).clicked() {
+                                                if ui.add(egui::Button::new("×").fill(Color32::from_rgb(83, 39, 49))).clicked() {
                                                     delete_after = Some(account.id.clone());
                                                 }
                                                 let reveal_text = if is_revealed { "Hide" } else { "Show" };
-                                                if ui.add(egui::Button::new(reveal_text).fill(Color32::from_rgb(38, 62, 96))).clicked() {
+                                                if ui.add(egui::Button::new(reveal_text).fill(ACCENT_SOFT)).clicked() {
                                                     if is_revealed {
                                                         self.revealed_accounts.remove(&account.id);
                                                     } else {
                                                         self.revealed_accounts.insert(account.id.clone());
                                                     }
                                                 }
-                                                if ui.add(egui::Button::new(if selected { "Selected" } else { "Select" }).fill(if selected { BLUE } else { Color32::from_rgb(38, 62, 96) })).clicked() {
+                                                if ui.add(egui::Button::new(if selected { "Selected" } else { "Select" }).fill(if selected { BLUE } else { ACCENT_SOFT })).clicked() {
                                                     select_after = Some(account.id.clone());
                                                 }
                                             });
                                         });
                                     });
-                                ui.add_space(4.0);
+                                ui.add_space(5.0);
                             }
+
                             if let Some(id) = select_after {
                                 self.selected_account = Some(id);
                             }
@@ -651,24 +670,22 @@ impl WindscribeApp {
                         });
                     });
 
-                right.add_space(8.0);
+                right.add_space(9.0);
                 right.horizontal_wrapped(|ui| {
                     let has_selection = self.selected_account.is_some();
-                    if ui.add_enabled(has_selection, egui::Button::new("Load").fill(Color32::from_rgb(38, 62, 96))).clicked() {
+                    if ui.add_enabled(has_selection, egui::Button::new("Load into editor").fill(ACCENT_SOFT)).clicked() {
                         self.load_selected_account();
                     }
-                    if ui.add_enabled(has_selection, egui::Button::new("Copy User").fill(Color32::from_rgb(38, 62, 96))).clicked() {
+                    if ui.add_enabled(has_selection, egui::Button::new("Copy username").fill(ACCENT_SOFT)).clicked() {
                         self.copy_username(ctx);
                     }
-                    if ui.add_enabled(has_selection, egui::Button::new("Copy Pass").fill(Color32::from_rgb(38, 62, 96))).clicked() {
+                    if ui.add_enabled(has_selection, egui::Button::new("Copy password").fill(ACCENT_SOFT)).clicked() {
                         self.copy_password(ctx);
                     }
-                    if ui.add_enabled(has_selection, egui::Button::new("Delete").fill(Color32::from_rgb(92, 39, 57))).clicked() {
+                    if ui.add_enabled(has_selection, egui::Button::new("Delete").fill(Color32::from_rgb(83, 39, 49))).clicked() {
                         self.pending_delete_account = self.selected_account.clone();
                     }
                 });
-                right.add_space(3.0);
-                right.label(RichText::new("Select an account to load or copy its credentials.").size(9.5).color(QUIET));
             });
         });
     }
@@ -982,6 +999,12 @@ fn card<R>(ui: &mut egui::Ui, add_contents: impl FnOnce(&mut egui::Ui) -> R) -> 
         .inner_margin(egui::Margin::same(17.0))
         .show(ui, add_contents)
         .inner
+}
+
+fn ui_heading(ui: &mut egui::Ui, title: &str, subtitle: &str) {
+    ui.label(RichText::new(title).size(9.0).strong().color(QUIET));
+    ui.add_space(2.0);
+    ui.label(RichText::new(subtitle).size(9.0).color(MUTED));
 }
 
 fn status_pill(ui: &mut egui::Ui, label: &str, color: Color32) {

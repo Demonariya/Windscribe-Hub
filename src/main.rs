@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     collections::HashSet,
     fs,
-    io::{self, Read},
+    io,
     path::{Path, PathBuf},
     process::{Command, Stdio},
     sync::mpsc::{self, Receiver, Sender},
@@ -276,12 +276,9 @@ impl WindscribeApp {
         fs::create_dir_all(parent).map_err(|error| error.to_string())?;
         let plain = serde_json::to_vec(&self.accounts).map_err(|error| error.to_string())?;
         let encrypted = dpapi_protect(&plain).map_err(|error| error.to_string())?;
-        let temp = path.with_extension("tmp");
+        let temp = path.with_extension("vault.tmp");
         fs::write(&temp, encrypted).map_err(|error| error.to_string())?;
-        if path.exists() {
-            fs::remove_file(&path).map_err(|error| error.to_string())?;
-        }
-        fs::rename(&temp, &path).map_err(|error| error.to_string())?;
+        replace_file_atomically(&temp, &path)?;
         Ok(())
     }
 
@@ -1158,6 +1155,19 @@ unsafe extern "system" {
 #[link(name = "Kernel32")]
 unsafe extern "system" {
     fn LocalFree(memory: *mut std::ffi::c_void) -> *mut std::ffi::c_void;
+    fn MoveFileExW(existing: *const u16, new: *const u16, flags: u32) -> i32;
+}
+
+fn replace_file_atomically(source: &Path, destination: &Path) -> Result<(), String> {
+    use std::os::windows::ffi::OsStrExt;
+    let source_wide: Vec<u16> = source.as_os_str().encode_wide().chain(Some(0)).collect();
+    let destination_wide: Vec<u16> = destination.as_os_str().encode_wide().chain(Some(0)).collect();
+    // MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH
+    let success = unsafe { MoveFileExW(source_wide.as_ptr(), destination_wide.as_ptr(), 0x1 | 0x8) };
+    if success == 0 {
+        return Err(io::Error::last_os_error().to_string());
+    }
+    Ok(())
 }
 
 fn protect_data(input: &[u8], protect: bool) -> Result<Vec<u8>, String> {

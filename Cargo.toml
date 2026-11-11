@@ -1,0 +1,26 @@
+[package]
+name = "windscribe-pro"
+version = "0.0.1"
+edition = "2021"
+description = "A native Windows desktop manager for Windscribe"
+authors = ["Demonariya"]
+license = "MIT"
+build = "build.rs"
+
+[dependencies]
+eframe = "0.29.1"
+rand = "0.8.5"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+uuid = { version = "1.11", features = ["v4"] }
+winreg = "0.52"
+
+[build-dependencies]
+winres = "0.1"
+
+[profile.release]
+opt-level = 2
+lto = "thin"
+codegen-units = 1
+strip = true
+panic = "abort"

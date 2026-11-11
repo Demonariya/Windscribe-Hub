@@ -102,6 +102,7 @@ class WindscribeHub(ctk.CTk):
         self.busy = False
         self.installed = False
         self.update_available = False
+        self.managed_by_winget = False
         self.running = False
         self.accounts = []
         self.selected_id = None
@@ -317,6 +318,9 @@ class WindscribeHub(ctk.CTk):
         elif self.update_available:
             self.setup_button.configure(text="Update Windscribe", fg_color=P["purple"], state="normal")
             self.open_button.configure(state="normal")
+        elif not self.managed_by_winget:
+            self.setup_button.configure(text="Update check unavailable", fg_color="#394A62", state="disabled")
+            self.open_button.configure(state="normal")
         else:
             self.setup_button.configure(text="Windscribe Up to Date", fg_color="#23553F", state="disabled")
             self.open_button.configure(state="normal")
@@ -330,23 +334,32 @@ class WindscribeHub(ctk.CTk):
 
     def _check_status(self):
         running = self._is_running()
+        local_exe = find_windscribe_exe()
         try:
             listed = run(["winget", "list", "--id", PACKAGE_ID, "--exact", "--accept-source-agreements"], 45)
         except FileNotFoundError:
-            self.events.put(("status", (False, False, "", running, "WinGet is unavailable. Install App Installer.")))
+            installed = local_exe is not None
+            version = "Detected outside WinGet" if installed else ""
+            self.events.put(("status", (installed, False, version, running,
+                                        "WinGet is unavailable; update detection is unavailable.", False)))
             return
+
         output = (listed.stdout or "") + "\n" + (listed.stderr or "")
-        installed = listed.returncode == 0 and PACKAGE_ID.casefold() in output.casefold()
+        managed = listed.returncode == 0 and PACKAGE_ID.casefold() in output.casefold()
+        installed = managed or local_exe is not None
         version = ""
-        if installed:
+        if managed:
             for line in output.splitlines():
                 if PACKAGE_ID.casefold() in line.casefold():
                     cols = line.split()
                     if len(cols) > 1:
                         version = cols[-2] if len(cols) > 2 else cols[-1]
                     break
+        elif installed:
+            version = "Detected outside WinGet"
+
         upgrade = False
-        if installed:
+        if managed:
             try:
                 result = run(["winget", "upgrade", "--id", PACKAGE_ID, "--exact", "--accept-source-agreements"], 60)
                 text = (result.stdout or "") + "\n" + (result.stderr or "")
@@ -355,16 +368,19 @@ class WindscribeHub(ctk.CTk):
                     x in low for x in ("no applicable upgrade found", "no installed package found", "no available upgrade"))
             except Exception:
                 upgrade = False
-        self.events.put(("status", (installed, upgrade, version, running, "")))
+        self.events.put(("status", (installed, upgrade, version, running, "", managed)))
 
-    def _apply_status(self, installed, upgrade, version, running, error):
+    def _apply_status(self, installed, upgrade, version, running, error, managed):
         self.installed, self.update_available, self.running = installed, upgrade, running
+        self.managed_by_winget = managed
         self.process_label.configure(text=f"App process: {'RUNNING' if running else 'NOT RUNNING'}",
                                      text_color=P["green"] if running else P["muted"])
-        if error:
-            title, detail, color = "WinGet could not be checked", error, P["amber"]
+        if not installed and error:
+            title, detail, color = "Windscribe status check incomplete", error, P["amber"]
         elif not installed:
             title, detail, color = "Windscribe is not installed", f"Package ID: {PACKAGE_ID}", P["amber"]
+        elif not managed:
+            title, detail, color = "Windscribe is installed", "Found on this PC • This installation is not managed by WinGet", P["green"]
         elif upgrade:
             title, detail, color = "Windscribe update available", f"Installed version: {version or 'Detected'}  •  Update available", P["amber"]
         else:

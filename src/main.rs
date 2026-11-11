@@ -77,6 +77,7 @@ struct WindscribeApp {
     revealed_accounts: HashSet<String>,
     logs: Vec<String>,
     confirm_registry: Option<&'static str>,
+    pending_delete_account: Option<String>,
     last_status_check: Option<SystemTime>,
 }
 
@@ -96,6 +97,7 @@ impl WindscribeApp {
             revealed_accounts: HashSet::new(),
             logs: Vec::new(),
             confirm_registry: None,
+            pending_delete_account: None,
             last_status_check: None,
         };
         app.load_vault();
@@ -404,10 +406,7 @@ impl WindscribeApp {
         card(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.vertical(|ui| {
-                    let (title, color) = if let Some(error) = self.status.error.as_deref() {
-                        let _ = error;
-                        ("Status check needs attention", AMBER)
-                    } else if !self.status.installed {
+                    let (title, color) = if !self.status.installed {
                         ("Windscribe is not installed", AMBER)
                     } else if self.status.update_available {
                         ("Windscribe update available", AMBER)
@@ -451,6 +450,8 @@ impl WindscribeApp {
 
                 let (label, color, enabled) = if self.busy {
                     ("Working…", QUIET, false)
+                } else if !self.status.installed && self.status.error.as_deref().is_some_and(|error| error.starts_with("WinGet is unavailable")) {
+                    ("WinGet is unavailable", QUIET, false)
                 } else if !self.status.installed {
                     ("Install Windscribe", BLUE, true)
                 } else if self.status.update_available {

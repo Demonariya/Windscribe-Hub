@@ -24,20 +24,21 @@ const APP_VERSION: &str = "0.0.1";
 const PACKAGE_ID: &str = "Windscribe.Windscribe";
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
-const BG: Color32 = Color32::from_rgb(7, 17, 31);
-const SIDEBAR: Color32 = Color32::from_rgb(9, 24, 43);
-const PANEL: Color32 = Color32::from_rgb(13, 32, 56);
-const CARD: Color32 = Color32::from_rgb(16, 36, 61);
-const CARD_ALT: Color32 = Color32::from_rgb(12, 29, 49);
-const BORDER: Color32 = Color32::from_rgb(32, 60, 96);
-const BLUE: Color32 = Color32::from_rgb(8, 124, 255);
-const PURPLE: Color32 = Color32::from_rgb(112, 74, 232);
-const GREEN: Color32 = Color32::from_rgb(25, 196, 125);
-const AMBER: Color32 = Color32::from_rgb(242, 185, 75);
-const RED: Color32 = Color32::from_rgb(228, 93, 115);
-const TEXT: Color32 = Color32::from_rgb(244, 247, 253);
-const MUTED: Color32 = Color32::from_rgb(165, 181, 206);
-const QUIET: Color32 = Color32::from_rgb(113, 133, 165);
+const BG: Color32 = Color32::from_rgb(10, 14, 21);
+const SIDEBAR: Color32 = Color32::from_rgb(13, 18, 27);
+const PANEL: Color32 = Color32::from_rgb(17, 24, 35);
+const CARD: Color32 = Color32::from_rgb(21, 29, 42);
+const CARD_ALT: Color32 = Color32::from_rgb(16, 23, 34);
+const BORDER: Color32 = Color32::from_rgb(43, 56, 74);
+const BLUE: Color32 = Color32::from_rgb(57, 132, 230);
+const PURPLE: Color32 = Color32::from_rgb(125, 103, 218);
+const GREEN: Color32 = Color32::from_rgb(54, 181, 128);
+const AMBER: Color32 = Color32::from_rgb(218, 168, 75);
+const RED: Color32 = Color32::from_rgb(214, 91, 105);
+const TEXT: Color32 = Color32::from_rgb(238, 242, 248);
+const MUTED: Color32 = Color32::from_rgb(164, 176, 194);
+const QUIET: Color32 = Color32::from_rgb(111, 125, 146);
+const ACCENT_SOFT: Color32 = Color32::from_rgb(25, 44, 69);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Page {
@@ -408,99 +409,134 @@ impl WindscribeApp {
     }
 
     fn render_status_card(&mut self, ui: &mut egui::Ui) {
-        card(ui, |ui| {
-            ui.horizontal(|ui| {
-                ui.vertical(|ui| {
-                    let (title, color) = if !self.status.installed {
-                        ("Windscribe is not installed", AMBER)
-                    } else if self.status.update_available {
-                        ("Windscribe update available", AMBER)
-                    } else {
-                        ("Windscribe is installed", GREEN)
-                    };
-                    ui.label(RichText::new(title).size(19.0).strong().color(color));
-                    ui.add_space(3.0);
-                    ui.label(RichText::new(&self.status.detail).size(11.5).color(MUTED));
+        let (title, color, status_label) = if !self.status.installed {
+            ("Windscribe isn't installed", AMBER, "ACTION REQUIRED")
+        } else if self.status.update_available {
+            ("An update is ready", AMBER, "UPDATE AVAILABLE")
+        } else {
+            ("Windscribe is ready", GREEN, "SYSTEM READY")
+        };
+
+        egui::Frame::none()
+            .fill(PANEL)
+            .stroke(Stroke::new(1.0_f32, BORDER))
+            .rounding(egui::Rounding::same(16.0))
+            .inner_margin(egui::Margin::same(20.0))
+            .show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    let (accent_rect, _) = ui.allocate_exact_size(Vec2::new(4.0, 76.0), egui::Sense::hover());
+                    ui.painter().rect_filled(accent_rect, 2.0, color);
                     ui.add_space(5.0);
-                    let process_text = if self.status.running {
-                        "●  APP PROCESS RUNNING"
-                    } else {
-                        "○  APP PROCESS NOT RUNNING"
-                    };
-                    ui.label(
-                        RichText::new(process_text)
-                            .size(10.5)
-                            .strong()
-                            .color(if self.status.running { GREEN } else { QUIET }),
-                    );
-                });
-                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    if action_button(ui, "Refresh Status", Color32::from_rgb(38, 62, 96), false).clicked()
-                        && !self.busy
-                    {
-                        self.refresh_status();
-                    }
+                    ui.vertical(|ui| {
+                        ui.horizontal(|ui| {
+                            ui.label(RichText::new(title).size(20.0).strong().color(TEXT));
+                            status_pill(ui, status_label, color);
+                        });
+                        ui.add_space(5.0);
+                        ui.label(RichText::new(&self.status.detail).size(11.5).color(MUTED));
+                        ui.add_space(9.0);
+                        let process_text = if self.status.running { "●  RUNNING" } else { "○  NOT RUNNING" };
+                        ui.label(
+                            RichText::new(process_text)
+                                .size(10.0)
+                                .strong()
+                                .color(if self.status.running { GREEN } else { QUIET }),
+                        );
+                    });
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        if action_button(ui, if self.busy { "Checking…" } else { "↻  Refresh status" }, ACCENT_SOFT, !self.busy).clicked() {
+                            self.refresh_status();
+                        }
+                    });
                 });
             });
+    }
+
+    fn render_quick_stats(&self, ui: &mut egui::Ui) {
+        ui.columns(3, |columns| {
+            metric_card(
+                &mut columns[0],
+                "INSTALLATION",
+                if self.status.installed { "Installed" } else { "Not found" },
+                if self.status.managed_by_winget { "Managed by WinGet" } else { "Local detection" },
+                if self.status.installed { GREEN } else { AMBER },
+            );
+            metric_card(
+                &mut columns[1],
+                "APP PROCESS",
+                if self.status.running { "Running" } else { "Stopped" },
+                "Desktop process state",
+                if self.status.running { GREEN } else { QUIET },
+            );
+            metric_card(
+                &mut columns[2],
+                "SAVED ACCOUNTS",
+                &self.accounts.len().to_string(),
+                "Encrypted on this device",
+                BLUE,
+            );
         });
     }
 
     fn render_setup_cards(&mut self, ui: &mut egui::Ui) {
         ui.columns(2, |columns| {
             card(&mut columns[0], |ui| {
-                ui.label(RichText::new("↓  WINDSCRIBE SETUP").size(14.0).strong().color(TEXT));
-                ui.add_space(5.0);
-                ui.label(RichText::new("Install, update or launch the official desktop app.").size(11.0).color(MUTED));
-                ui.add_space(14.0);
-
+                ui.horizontal(|ui| {
+                    icon_tile(ui, "W", BLUE);
+                    ui.vertical(|ui| {
+                        ui.label(RichText::new("WINDSCRIBE DESKTOP").size(12.0).strong().color(TEXT));
+                        ui.label(RichText::new("Install, maintain and launch").size(10.0).color(QUIET));
+                    });
+                });
+                ui.add_space(13.0);
                 let (label, color, enabled) = if self.busy {
-                    ("Working…", QUIET, false)
+                    ("Please wait…", QUIET, false)
                 } else if !self.status.installed && self.status.error.as_deref().is_some_and(|error| error.starts_with("WinGet is unavailable")) {
-                    ("WinGet is unavailable", QUIET, false)
+                    ("WinGet unavailable", QUIET, false)
                 } else if !self.status.installed {
                     ("Install Windscribe", BLUE, true)
                 } else if self.status.update_available {
-                    ("Update Windscribe", PURPLE, true)
+                    ("Install available update", PURPLE, true)
                 } else if !self.status.managed_by_winget {
                     ("Update check unavailable", QUIET, false)
                 } else {
-                    ("Windscribe is up to date", Color32::from_rgb(35, 85, 63), false)
+                    ("You're up to date", Color32::from_rgb(37, 77, 61), false)
                 };
-                if action_button(ui, label, color, enabled).clicked() {
+                if wide_button(ui, label, color, enabled).clicked() {
                     self.install_or_update();
                 }
-                ui.add_space(7.0);
-                if action_button(
-                    ui,
-                    "Open Windscribe",
-                    GREEN,
-                    self.status.installed && !self.busy,
-                )
-                .clicked()
-                {
+                ui.add_space(8.0);
+                if wide_button(ui, "↗  Open Windscribe", ACCENT_SOFT, self.status.installed && !self.busy).clicked() {
                     self.open_windscribe();
                 }
                 if self.status.installed && !self.status.managed_by_winget {
-                    ui.add_space(5.0);
-                    ui.label(RichText::new("This installation was detected locally; WinGet cannot manage its updates.").size(10.0).color(QUIET));
+                    ui.add_space(8.0);
+                    ui.label(RichText::new("This copy was detected locally. Update checks require a WinGet-managed installation.").size(9.5).color(QUIET));
                 }
             });
 
             card(&mut columns[1], |ui| {
-                ui.label(RichText::new("⚙  REGISTRY CLEANUP").size(14.0).strong().color(TEXT));
-                ui.add_space(5.0);
-                ui.label(RichText::new("A .reg backup is exported before each deletion.").size(11.0).color(MUTED));
-                ui.add_space(14.0);
-                if action_button(ui, "Run Command 1", PURPLE, !self.busy).clicked() {
-                    self.confirm_registry = Some("one");
-                }
-                ui.add_space(7.0);
-                if action_button(ui, "Run Command 2", PURPLE, !self.busy).clicked() {
-                    self.confirm_registry = Some("two");
-                }
-                ui.add_space(8.0);
-                ui.label(RichText::new("1  NetControlPort").size(10.0).color(QUIET));
-                ui.label(RichText::new("2  Windscribe2").size(10.0).color(QUIET));
+                ui.horizontal(|ui| {
+                    icon_tile(ui, "⌘", PURPLE);
+                    ui.vertical(|ui| {
+                        ui.label(RichText::new("REGISTRY MAINTENANCE").size(12.0).strong().color(TEXT));
+                        ui.label(RichText::new("Back up before making changes").size(10.0).color(QUIET));
+                    });
+                });
+                ui.add_space(13.0);
+                ui.label(RichText::new("Remove selected Windscribe registry entries. A .reg backup is created first; deletion only proceeds after a successful export.").size(10.5).color(MUTED));
+                ui.add_space(11.0);
+                ui.horizontal(|ui| {
+                    if small_button(ui, "Clean key 01", ACCENT_SOFT).clicked() {
+                        self.confirm_registry = Some("one");
+                    }
+                    if small_button(ui, "Clean key 02", ACCENT_SOFT).clicked() {
+                        self.confirm_registry = Some("two");
+                    }
+                });
+                ui.add_space(9.0);
+                ui.label(RichText::new("01  NetControlPort").size(9.5).color(QUIET));
+                ui.label(RichText::new("02  Windscribe2").size(9.5).color(QUIET));
             });
         });
     }
@@ -639,46 +675,85 @@ impl WindscribeApp {
 
     fn render_registry_page(&mut self, ui: &mut egui::Ui) {
         card(ui, |ui| {
-            ui.label(RichText::new("⚙  REGISTRY CLEANUP").size(14.0).strong().color(TEXT));
-            ui.add_space(5.0);
-            ui.label(RichText::new("Each key is exported to a timestamped .reg backup before deletion.").size(11.0).color(MUTED));
-            ui.add_space(14.0);
-            ui.horizontal_wrapped(|ui| {
-                if action_button(ui, "Run Command 1", PURPLE, !self.busy).clicked() {
-                    self.confirm_registry = Some("one");
-                }
-                if action_button(ui, "Run Command 2", PURPLE, !self.busy).clicked() {
-                    self.confirm_registry = Some("two");
-                }
+            ui.horizontal(|ui| {
+                icon_tile(ui, "⌘", PURPLE);
+                ui.vertical(|ui| {
+                    ui.label(RichText::new("REGISTRY CLEANUP").size(14.0).strong().color(TEXT));
+                    ui.label(RichText::new("Careful maintenance of Windscribe registry entries").size(10.0).color(QUIET));
+                });
+            });
+            ui.add_space(12.0);
+            egui::Frame::none()
+                .fill(Color32::from_rgb(57, 43, 25))
+                .rounding(egui::Rounding::same(9.0))
+                .inner_margin(egui::Margin::same(11.0))
+                .show(ui, |ui| {
+                    ui.label(RichText::new("Backup protection is enabled").size(10.5).strong().color(AMBER));
+                    ui.label(RichText::new("Each key is exported to a timestamped .reg file before deletion. If export fails, the key is left untouched.").size(9.5).color(MUTED));
+                });
+            ui.add_space(13.0);
+            ui.horizontal(|ui| {
+                ui.vertical(|ui| {
+                    ui.label(RichText::new("KEY 01").size(9.0).strong().color(QUIET));
+                    ui.label(RichText::new("NetControlPort").size(12.0).strong().color(TEXT));
+                    ui.label(RichText::new(r#"HKCU\Software\Microsoft\Windows\CurrentVersion\NetControlPort"#).size(9.0).monospace().color(MUTED));
+                });
+                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    if action_button(ui, "Review & clean", PURPLE, !self.busy).clicked() {
+                        self.confirm_registry = Some("one");
+                    }
+                });
             });
             ui.add_space(10.0);
-            ui.label(RichText::new(r#"HKCU\Software\Microsoft\Windows\CurrentVersion\NetControlPort"#).size(10.0).monospace().color(QUIET));
-            ui.label(RichText::new(r#"HKCU\Software\Windscribe\Windscribe2"#).size(10.0).monospace().color(QUIET));
+            ui.separator();
+            ui.add_space(10.0);
+            ui.horizontal(|ui| {
+                ui.vertical(|ui| {
+                    ui.label(RichText::new("KEY 02").size(9.0).strong().color(QUIET));
+                    ui.label(RichText::new("Windscribe2").size(12.0).strong().color(TEXT));
+                    ui.label(RichText::new(r#"HKCU\Software\Windscribe\Windscribe2"#).size(9.0).monospace().color(MUTED));
+                });
+                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    if action_button(ui, "Review & clean", PURPLE, !self.busy).clicked() {
+                        self.confirm_registry = Some("two");
+                    }
+                });
+            });
         });
     }
 
     fn render_activity(&mut self, ui: &mut egui::Ui) {
         card(ui, |ui| {
             ui.horizontal(|ui| {
-                ui.label(RichText::new("▤  ACTIVITY LOG").size(13.0).strong().color(TEXT));
+                ui.vertical(|ui| {
+                    ui.label(RichText::new("ACTIVITY").size(12.0).strong().color(TEXT));
+                    ui.label(RichText::new("Recent operations and system messages").size(9.5).color(QUIET));
+                });
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    if small_button(ui, "Clear", Color32::from_rgb(38, 62, 96)).clicked() {
+                    status_pill(ui, &format!("{} EVENTS", self.logs.len()), MUTED);
+                    ui.add_space(7.0);
+                    if small_button(ui, "Clear log", ACCENT_SOFT).clicked() {
                         self.logs.clear();
                     }
                 });
             });
-            ui.add_space(7.0);
+            ui.add_space(11.0);
             egui::Frame::none()
-                .fill(Color32::from_rgb(5, 13, 23))
-                .rounding(egui::Rounding::same(7.0))
-                .inner_margin(egui::Margin::same(10.0))
+                .fill(Color32::from_rgb(11, 16, 24))
+                .stroke(Stroke::new(1.0_f32, BORDER))
+                .rounding(egui::Rounding::same(10.0))
+                .inner_margin(egui::Margin::same(12.0))
                 .show(ui, |ui| {
-                    egui::ScrollArea::vertical().max_height(135.0).stick_to_bottom(true).show(ui, |ui| {
+                    egui::ScrollArea::vertical().max_height(142.0).stick_to_bottom(true).show(ui, |ui| {
                         if self.logs.is_empty() {
-                            ui.label(RichText::new("No activity yet.").size(10.0).color(QUIET));
+                            ui.label(RichText::new("No activity recorded yet.").size(10.0).color(QUIET));
                         }
                         for line in &self.logs {
-                            ui.label(RichText::new(line).font(FontId::monospace(10.0)).color(MUTED));
+                            ui.horizontal(|ui| {
+                                let (dot, _) = ui.allocate_exact_size(Vec2::splat(5.0), egui::Sense::hover());
+                                ui.painter().circle_filled(dot.center(), 2.5, BLUE);
+                                ui.label(RichText::new(line).font(FontId::monospace(9.5)).color(MUTED));
+                            });
                         }
                     });
                 });
@@ -744,77 +819,122 @@ impl WindscribeApp {
 impl eframe::App for WindscribeApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.poll_worker_events();
-        ctx.request_repaint_after(Duration::from_millis(120));
+        ctx.request_repaint_after(Duration::from_millis(180));
 
         egui::SidePanel::left("navigation")
-            .exact_width(228.0)
+            .exact_width(244.0)
             .frame(egui::Frame::none().fill(SIDEBAR).inner_margin(egui::Margin::same(18.0)))
             .show(ctx, |ui| {
-                ui.add_space(5.0);
+                ui.add_space(7.0);
                 ui.horizontal(|ui| {
-                    let (rect, _) = ui.allocate_exact_size(Vec2::splat(48.0), egui::Sense::hover());
-                    ui.painter().rect_filled(rect, 13.0, Color32::from_rgb(18, 58, 103));
-                    ui.painter().rect_stroke(rect, 13.0, Stroke::new(1.0_f32, BLUE));
-                    ui.painter().text(rect.center(), egui::Align2::CENTER_CENTER, "W",
-                                      FontId::proportional(28.0), Color32::from_rgb(32, 185, 244));
-                    ui.add_space(8.0);
+                    let (rect, _) = ui.allocate_exact_size(Vec2::splat(44.0), egui::Sense::hover());
+                    ui.painter().rect_filled(rect, 12.0, ACCENT_SOFT);
+                    ui.painter().rect_stroke(rect, 12.0, Stroke::new(1.0_f32, BLUE));
+                    ui.painter().text(
+                        rect.center(),
+                        egui::Align2::CENTER_CENTER,
+                        "W",
+                        FontId::proportional(25.0),
+                        Color32::from_rgb(114, 177, 248),
+                    );
+                    ui.add_space(10.0);
                     ui.vertical(|ui| {
-                        ui.label(RichText::new("WINDSCRIBE").size(15.0).strong().color(TEXT));
-                        ui.label(RichText::new("PRO  •  DESKTOP HUB").size(9.0).strong().color(Color32::from_rgb(32, 185, 244)));
+                        ui.label(RichText::new("WINDSCRIBE").size(13.0).strong().color(TEXT));
+                        ui.label(RichText::new("DESKTOP COMPANION").size(8.5).strong().color(QUIET));
                     });
                 });
-                ui.add_space(25.0);
-                if nav_item(ui, "⌂", "Overview", self.active_page == Page::Overview) {
+
+                ui.add_space(31.0);
+                ui.label(RichText::new("WORKSPACE").size(8.5).strong().color(QUIET));
+                ui.add_space(8.0);
+                if nav_item(ui, "◫", "Overview", self.active_page == Page::Overview) {
                     self.active_page = Page::Overview;
                 }
-                if nav_item(ui, "◈", "Windscribe Account", self.active_page == Page::Accounts) {
+                if nav_item(ui, "◈", "Account vault", self.active_page == Page::Accounts) {
                     self.active_page = Page::Accounts;
                 }
-                if nav_item(ui, "⚙", "Registry Tools", self.active_page == Page::Registry) {
+                if nav_item(ui, "⌘", "Registry tools", self.active_page == Page::Registry) {
                     self.active_page = Page::Registry;
                 }
-                ui.add_space(10.0);
+
+                ui.add_space(17.0);
                 ui.separator();
-                ui.add_space(10.0);
+                ui.add_space(14.0);
+                ui.label(RichText::new("DEVICE").size(8.5).strong().color(QUIET));
+                ui.add_space(8.0);
+                egui::Frame::none()
+                    .fill(CARD_ALT)
+                    .stroke(Stroke::new(1.0_f32, BORDER))
+                    .rounding(egui::Rounding::same(11.0))
+                    .inner_margin(egui::Margin::same(12.0))
+                    .show(ui, |ui| {
+                        ui.horizontal(|ui| {
+                            let indicator = if self.status.installed { GREEN } else { AMBER };
+                            let (dot, _) = ui.allocate_exact_size(Vec2::splat(7.0), egui::Sense::hover());
+                            ui.painter().circle_filled(dot.center(), 3.5, indicator);
+                            ui.label(RichText::new(if self.status.installed { "Windscribe detected" } else { "Not detected" }).size(10.0).strong().color(TEXT));
+                        });
+                        ui.add_space(4.0);
+                        ui.label(RichText::new(if self.status.running { "Desktop process is running" } else { "Desktop process is stopped" }).size(9.0).color(QUIET));
+                        ui.add_space(8.0);
+                        ui.horizontal(|ui| {
+                            ui.label(RichText::new("Saved accounts").size(9.0).color(MUTED));
+                            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                                ui.label(RichText::new(self.accounts.len().to_string()).size(10.0).strong().color(TEXT));
+                            });
+                        });
+                    });
+
                 ui.with_layout(Layout::bottom_up(Align::LEFT), |ui| {
-                    ui.label(RichText::new(format!("v{APP_VERSION}  •  Demonariya")).size(9.0).color(QUIET));
-                    ui.add_space(14.0);
+                    ui.add_space(10.0);
+                    ui.label(RichText::new(format!("VERSION {APP_VERSION}")).size(8.5).strong().color(QUIET));
+                    ui.add_space(12.0);
                     egui::Frame::none()
-                        .fill(Color32::from_rgb(13, 32, 56))
+                        .fill(Color32::from_rgb(20, 35, 31))
+                        .stroke(Stroke::new(1.0_f32, Color32::from_rgb(43, 76, 63)))
                         .rounding(egui::Rounding::same(10.0))
-                        .inner_margin(egui::Margin::same(12.0))
+                        .inner_margin(egui::Margin::same(11.0))
                         .show(ui, |ui| {
-                            ui.label(RichText::new("●  LOCAL & ENCRYPTED").size(9.5).strong().color(GREEN));
+                            ui.label(RichText::new("●  PRIVATE BY DESIGN").size(8.5).strong().color(GREEN));
                             ui.add_space(4.0);
-                            ui.label(RichText::new("Credentials are protected with Windows DPAPI for this Windows user.").size(9.5).color(MUTED));
+                            ui.label(RichText::new("Account credentials are encrypted locally with Windows DPAPI.").size(9.0).color(MUTED));
                         });
                 });
             });
 
         egui::CentralPanel::default()
-            .frame(egui::Frame::none().fill(BG).inner_margin(egui::Margin::same(20.0)))
+            .frame(egui::Frame::none().fill(BG).inner_margin(egui::Margin::symmetric(25.0, 22.0)))
             .show(ctx, |ui| {
                 egui::ScrollArea::vertical().show(ui, |ui| {
+                    let (title, subtitle) = match self.active_page {
+                        Page::Overview => ("Overview", "Your Windscribe desktop status at a glance."),
+                        Page::Accounts => ("Account vault", "Manage encrypted credentials stored on this device."),
+                        Page::Registry => ("Registry tools", "Review maintenance actions and protected backups."),
+                    };
+
                     ui.horizontal(|ui| {
                         ui.vertical(|ui| {
-                            ui.label(RichText::new("Windscribe Pro").size(29.0).strong().color(TEXT));
-                            ui.label(RichText::new("VPN setup, account access and maintenance in one place").size(11.5).color(MUTED));
+                            ui.label(RichText::new(title).size(26.0).strong().color(TEXT));
+                            ui.label(RichText::new(subtitle).size(10.5).color(MUTED));
                         });
                         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                            let (dot, label, color) = if self.busy {
-                                ("●", "WORKING", AMBER)
+                            let (label, color) = if self.busy {
+                                ("WORKING", AMBER)
                             } else if self.status.installed {
-                                ("●", "READY", GREEN)
+                                ("CONNECTED TO DEVICE", GREEN)
                             } else {
-                                ("●", "NOT INSTALLED", AMBER)
+                                ("DEVICE CHECK", QUIET)
                             };
-                            ui.label(RichText::new(format!("{dot}  {label}")).size(10.0).strong().color(color));
+                            status_pill(ui, label, color);
                         });
                     });
-                    ui.add_space(18.0);
+                    ui.add_space(19.0);
+
                     match self.active_page {
                         Page::Overview => {
                             self.render_status_card(ui);
+                            ui.add_space(12.0);
+                            self.render_quick_stats(ui);
                             ui.add_space(12.0);
                             self.render_setup_cards(ui);
                             ui.add_space(12.0);
@@ -835,13 +955,14 @@ impl eframe::App for WindscribeApp {
                             self.render_activity(ui);
                         }
                     }
-                    ui.add_space(8.0);
+
+                    ui.add_space(12.0);
                     ui.horizontal(|ui| {
-                        ui.label(RichText::new("WINDscribe PRO HUB").size(9.0).strong().color(QUIET));
+                        ui.label(RichText::new("WINDSCRIBE DESKTOP COMPANION").size(8.5).strong().color(QUIET));
                         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                             if let Some(time) = self.last_status_check {
                                 let seconds = time.elapsed().unwrap_or_default().as_secs();
-                                ui.label(RichText::new(format!("Status checked {seconds}s ago")).size(9.0).color(QUIET));
+                                ui.label(RichText::new(format!("Last device check · {seconds}s ago")).size(8.5).color(QUIET));
                             }
                         });
                     });
@@ -857,43 +978,85 @@ fn card<R>(ui: &mut egui::Ui, add_contents: impl FnOnce(&mut egui::Ui) -> R) -> 
     egui::Frame::none()
         .fill(CARD)
         .stroke(Stroke::new(1.0_f32, BORDER))
-        .rounding(egui::Rounding::same(13.0))
-        .inner_margin(egui::Margin::same(15.0))
+        .rounding(egui::Rounding::same(14.0))
+        .inner_margin(egui::Margin::same(17.0))
         .show(ui, add_contents)
         .inner
+}
+
+fn status_pill(ui: &mut egui::Ui, label: &str, color: Color32) {
+    egui::Frame::none()
+        .fill(color.linear_multiply(0.16))
+        .stroke(Stroke::new(1.0_f32, color.linear_multiply(0.35)))
+        .rounding(egui::Rounding::same(20.0))
+        .inner_margin(egui::Margin::symmetric(9.0, 5.0))
+        .show(ui, |ui| {
+            ui.label(RichText::new(label).size(8.5).strong().color(color));
+        });
+}
+
+fn icon_tile(ui: &mut egui::Ui, icon: &str, color: Color32) {
+    let (rect, _) = ui.allocate_exact_size(Vec2::splat(37.0), egui::Sense::hover());
+    ui.painter().rect_filled(rect, 10.0, color.linear_multiply(0.17));
+    ui.painter().rect_stroke(rect, 10.0, Stroke::new(1.0_f32, color.linear_multiply(0.38)));
+    ui.painter().text(rect.center(), egui::Align2::CENTER_CENTER, icon, FontId::proportional(17.0), color);
+    ui.add_space(3.0);
+}
+
+fn metric_card(ui: &mut egui::Ui, label: &str, value: &str, detail: &str, color: Color32) {
+    card(ui, |ui| {
+        ui.horizontal(|ui| {
+            let (dot, _) = ui.allocate_exact_size(Vec2::splat(7.0), egui::Sense::hover());
+            ui.painter().circle_filled(dot.center(), 3.5, color);
+            ui.label(RichText::new(label).size(8.5).strong().color(QUIET));
+        });
+        ui.add_space(8.0);
+        ui.label(RichText::new(value).size(18.0).strong().color(TEXT));
+        ui.add_space(2.0);
+        ui.label(RichText::new(detail).size(9.0).color(MUTED));
+    });
 }
 
 fn action_button(ui: &mut egui::Ui, text: &str, color: Color32, enabled: bool) -> egui::Response {
     ui.add_enabled(
         enabled,
-        egui::Button::new(RichText::new(text).size(11.5).strong().color(Color32::WHITE))
+        egui::Button::new(RichText::new(text).size(10.5).strong().color(Color32::WHITE))
             .fill(color)
-            .min_size(Vec2::new(150.0, 35.0)),
+            .min_size(Vec2::new(142.0, 36.0)),
+    )
+}
+
+fn wide_button(ui: &mut egui::Ui, text: &str, color: Color32, enabled: bool) -> egui::Response {
+    ui.add_enabled(
+        enabled,
+        egui::Button::new(RichText::new(text).size(10.5).strong().color(Color32::WHITE))
+            .fill(color)
+            .min_size(Vec2::new(ui.available_width(), 38.0)),
     )
 }
 
 fn small_button(ui: &mut egui::Ui, text: &str, color: Color32) -> egui::Response {
     ui.add(
-        egui::Button::new(RichText::new(text).size(10.0).strong().color(Color32::WHITE))
+        egui::Button::new(RichText::new(text).size(9.0).strong().color(TEXT))
             .fill(color)
-            .min_size(Vec2::new(100.0, 28.0)),
+            .min_size(Vec2::new(92.0, 29.0)),
     )
 }
 
 fn nav_item(ui: &mut egui::Ui, icon: &str, title: &str, active: bool) -> bool {
-    let fill = if active { Color32::from_rgb(16, 69, 140) } else { Color32::TRANSPARENT };
+    let fill = if active { ACCENT_SOFT } else { Color32::TRANSPARENT };
     let text_color = if active { TEXT } else { MUTED };
     let response = ui.add_sized(
-        [192.0, 39.0],
+        [ui.available_width(), 42.0],
         egui::Button::new(
             RichText::new(format!("{icon}    {title}"))
-                .size(11.5)
+                .size(10.5)
                 .strong()
                 .color(text_color),
         )
         .fill(fill),
     );
-    ui.add_space(3.0);
+    ui.add_space(4.0);
     response.clicked()
 }
 
@@ -1279,11 +1442,15 @@ fn main() -> eframe::Result<()> {
     visuals.override_text_color = Some(TEXT);
     visuals.widgets.noninteractive.bg_fill = CARD;
     visuals.widgets.noninteractive.fg_stroke = Stroke::new(1.0_f32, MUTED);
-    visuals.widgets.inactive.bg_fill = Color32::from_rgb(27, 47, 73);
+    visuals.widgets.inactive.bg_fill = Color32::from_rgb(31, 43, 59);
     visuals.widgets.inactive.fg_stroke = Stroke::new(1.0_f32, TEXT);
-    visuals.widgets.hovered.bg_fill = Color32::from_rgb(37, 78, 124);
+    visuals.widgets.hovered.bg_fill = Color32::from_rgb(43, 62, 86);
+    visuals.widgets.hovered.fg_stroke = Stroke::new(1.0_f32, Color32::from_rgb(185, 207, 237));
     visuals.widgets.active.bg_fill = BLUE;
-    visuals.selection.bg_fill = Color32::from_rgb(23, 88, 154);
+    visuals.widgets.active.fg_stroke = Stroke::new(1.0_f32, TEXT);
+    visuals.selection.bg_fill = Color32::from_rgb(35, 74, 119);
+    visuals.window_rounding = egui::Rounding::same(13.0);
+    visuals.window_stroke = Stroke::new(1.0_f32, BORDER);
 
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
@@ -1298,6 +1465,10 @@ fn main() -> eframe::Result<()> {
         options,
         Box::new(move |creation_context| {
             creation_context.egui_ctx.set_visuals(visuals);
+            creation_context.egui_ctx.style_mut(|style| {
+                style.spacing.item_spacing = Vec2::new(10.0, 8.0);
+                style.spacing.button_padding = Vec2::new(12.0, 8.0);
+            });
             Ok(Box::new(WindscribeApp::new()))
         }),
     )

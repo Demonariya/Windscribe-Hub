@@ -52,7 +52,6 @@ struct InstallStatus {
     managed_by_winget: bool,
     update_available: bool,
     running: bool,
-    installed_version: String,
     detail: String,
     error: Option<String>,
 }
@@ -755,7 +754,7 @@ impl eframe::App for WindscribeApp {
                 ui.horizontal(|ui| {
                     let (rect, _) = ui.allocate_exact_size(Vec2::splat(48.0), egui::Sense::hover());
                     ui.painter().rect_filled(rect, 13.0, Color32::from_rgb(18, 58, 103));
-                    ui.painter().rect_stroke(rect, 13.0, Stroke::new(1.0, BLUE));
+                    ui.painter().rect_stroke(rect, 13.0, Stroke::new(1.0_f32, BLUE));
                     ui.painter().text(rect.center(), egui::Align2::CENTER_CENTER, "W",
                                       FontId::proportional(28.0), Color32::from_rgb(32, 185, 244));
                     ui.add_space(8.0);
@@ -857,7 +856,7 @@ impl eframe::App for WindscribeApp {
 fn card<R>(ui: &mut egui::Ui, add_contents: impl FnOnce(&mut egui::Ui) -> R) -> R {
     egui::Frame::none()
         .fill(CARD)
-        .stroke(Stroke::new(1.0, BORDER))
+        .stroke(Stroke::new(1.0_f32, BORDER))
         .rounding(egui::Rounding::same(13.0))
         .inner_margin(egui::Margin::same(15.0))
         .show(ui, add_contents)
@@ -955,7 +954,7 @@ fn detect_windscribe() -> InstallStatus {
 
     let installed = managed || local_exe.is_some();
     let mut update_available = false;
-    let mut detail = String::new();
+    let mut detail: String;
     let mut error = winget_error;
 
     if !installed {
@@ -1018,7 +1017,6 @@ fn detect_windscribe() -> InstallStatus {
         managed_by_winget: managed,
         update_available,
         running,
-        installed_version: version,
         detail,
         error,
     }
@@ -1280,9 +1278,9 @@ fn main() -> eframe::Result<()> {
     visuals.extreme_bg_color = Color32::from_rgb(5, 13, 23);
     visuals.override_text_color = Some(TEXT);
     visuals.widgets.noninteractive.bg_fill = CARD;
-    visuals.widgets.noninteractive.fg_stroke = Stroke::new(1.0, MUTED);
+    visuals.widgets.noninteractive.fg_stroke = Stroke::new(1.0_f32, MUTED);
     visuals.widgets.inactive.bg_fill = Color32::from_rgb(27, 47, 73);
-    visuals.widgets.inactive.fg_stroke = Stroke::new(1.0, TEXT);
+    visuals.widgets.inactive.fg_stroke = Stroke::new(1.0_f32, TEXT);
     visuals.widgets.hovered.bg_fill = Color32::from_rgb(37, 78, 124);
     visuals.widgets.active.bg_fill = BLUE;
     visuals.selection.bg_fill = Color32::from_rgb(23, 88, 154);

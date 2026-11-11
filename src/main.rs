@@ -547,7 +547,7 @@ impl WindscribeApp {
                     }
                 });
                 left.add_space(7.0);
-                if action_button(ui, "Save Windscribe Account", GREEN, true).clicked() {
+                if action_button(left, "Save Windscribe Account", GREEN, true).clicked() {
                     self.save_account();
                 }
                 left.add_space(6.0);

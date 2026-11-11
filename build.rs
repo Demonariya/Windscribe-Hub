@@ -2,7 +2,7 @@ use std::{env, fs, path::PathBuf};
 
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
-    if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
+    if env::var("CARGO_CFG_TARGET_OS").unwrap_or_default() == "windows" {
         let out = PathBuf::from(env::var_os("OUT_DIR").expect("OUT_DIR is not set"));
         let icon = out.join("windscribe-pro.ico");
         write_icon(&icon).expect("could not generate the application icon");

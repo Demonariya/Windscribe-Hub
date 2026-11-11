@@ -1240,7 +1240,6 @@ fn main() -> eframe::Result<()> {
             .with_inner_size([1320.0, 900.0])
             .with_min_inner_size([1080.0, 760.0])
             .with_title(format!("{APP_TITLE}  •  {APP_VERSION}")),
-        default_theme: eframe::Theme::Dark,
         ..Default::default()
     };
 

@@ -41,7 +41,8 @@ Requires stable Rust and Visual Studio C++ Build Tools (MSVC) with the Windows S
 
 ```powershell
 cargo fmt --check
-cargo test --all-targets
+cargo check
+cargo test
 cargo build --release
 ```
 

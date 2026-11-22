@@ -1,0 +1,31 @@
+[package]
+name = "windscribe-hub"
+version = "0.1.0"
+edition = "2021"
+description = "Windscribe Hub — Native Windows desktop manager for Windscribe"
+authors = ["Demonariya"]
+license = "MIT"
+build = "build.rs"
+
+[dependencies]
+eframe = "0.29.1"
+egui = "0.29.1"
+egui_extras = "0.29.1"
+rand = "0.8.5"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.43", features = ["rt-multi-thread", "sync", "time", "process"] }
+uuid = { version = "1.11", features = ["v4"] }
+
+[target.'cfg(windows)'.dependencies]
+winreg = "0.52"
+
+[target.'cfg(windows)'.build-dependencies]
+winres = "0.1"
+
+[profile.release]
+opt-level = 2
+lto = "thin"
+codegen-units = 1
+strip = true
+panic = "abort"

@@ -1,0 +1,10 @@
+/target/
+**/*.rs.bk
+*.vault
+accounts.vault
+settings.json
+*.tmp
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
